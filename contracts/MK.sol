@@ -42,11 +42,11 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     bool minted; // 是否铸造
   }
 
-  uint256 public balance; // ?
+  uint256 public balance; // 合约内存放的金额
   uint256 private servicePct; // 服务费
 
   mapping(uint256 => EventStruct) events;
-  mapping(uint256 => TicketStruct[]) tickets; // 票，每个活动有多个票
+  mapping(uint256 => TicketStruct[]) tickets; // 活动=>数组(被购买的票)，数组中每个元素是一个票
   mapping(uint256 => bool) eventExists; // 活动是否存在
 
   // 初始化
@@ -54,7 +54,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     servicePct = _pct;
   }
 
-  // 合约部署者行为，创建活动
+  // 活动主办方，创建活动
   function createEvent(
     string memory title,
     string memory description,
@@ -89,7 +89,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     eventExists[eventMK.id] = true;
   }
 
-  // 合约部署者行为，更新活动
+  // 活动主办方，更新活动
   function updateEvent(
     uint256 eventId,
     string memory title,
@@ -121,15 +121,16 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     events[eventId].endsAt = endsAt;
   }
 
-  // 合约部署者行为，删除活动
+  // 合约部署者行为/合约部署方，删除活动
   function deleteEvent(uint256 eventId) public {
+    // owner是合约部署者
     require(msg.sender == events[eventId].owner || msg.sender == owner(), "You are not the owner of this event");
     require(eventExists[eventId], "Event does not exist");
     require(!events[eventId].deleted, "Event already deleted");
     // 留底记录活动，不能删除
     require(!events[eventId].paidOut, "Event has not been paid out"); //该活动在合约中有金额，不能删除
     require(!events[eventId].refunded, "Event has not been refunded"); //该活动有退款，不能删除
-
+    require(refundTickets(eventId), "Refund tickets failed"); // 退款失败
     events[eventId].deleted = true;
     // eventExists[eventId] = false; // 不用删除，作为记录
   }
@@ -180,7 +181,89 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     return events[eventId];
   }
 
+  // 用户行为，购买票
+  function buyTickets(uint256 eventId, uint256 numOfticket) public payable {
+    require(eventExists[eventId], "Event not found");
+    require(numOfticket > 0, "NumOfticket must be greater than zero");
+    require(msg.value >= events[eventId].ticketCost * numOfticket, "Insufficient amount");
+    require(events[eventId].seats + numOfticket <= events[eventId].capacity, "Out of seating capacity");
+
+    for (uint256 i = 0; i < numOfticket; i++) {
+      TicketStruct memory ticket;
+      ticket.id = tickets[eventId].length; // tickets存放着每个活动的票，每个活动有多个票,每次push一个票，length就+1
+      ticket.eventId = eventId;
+      ticket.owner = msg.sender;
+      ticket.ticketCost = events[eventId].ticketCost;
+      ticket.timestamp = currentTime();
+      tickets[eventId].push(ticket);
+    }
+
+    events[eventId].seats += numOfticket;
+    balance = balance + msg.value; // 增加合约余额
+  }
+
+  // 用户行为，获取单个活动的票，（不需要加入owner判断，去中心化性质，任何人都可以获取）
+  function getTickets(uint256 eventId) public view returns (TicketStruct[] memory Tickets) {
+    return tickets[eventId];
+  }
+
+  // 合约部署方，退款，配合删除活动
+  function refundTickets(uint256 eventId) internal returns (bool) {
+    for (uint256 i = 0; i < tickets[eventId].length; i++) {
+      payto(tickets[eventId][i].owner, tickets[eventId][i].ticketCost);
+      tickets[eventId][i].refunded = true;
+      balance = balance - tickets[eventId][i].ticketCost;
+    }
+    events[eventId].refunded = true;
+
+    return true;
+  }
+
+  // 活动主办方行为/合约部署方，将合约中的金额提现走并支付服务费给合约部署者
+  function payOut(uint256 eventId) public nonReentrant {
+    require(eventExists[eventId], "Event not found");
+    require(!events[eventId].paidOut, "Event already paid out"); // 活动已经提现过
+    require(currentTime() > events[eventId].endsAt, "Event still ongoing");
+    require(msg.sender == events[eventId].owner || msg.sender == owner(), "Unauthorized entity");
+    require(mintTickets(eventId), "Event failed to mint");
+    // 计算总收入
+    uint256 revenue = events[eventId].seats * events[eventId].ticketCost;
+    // 计算服务费
+    uint256 fee = (revenue * servicePct) / 100;
+
+    // 支付活动主办方
+    payto(events[eventId].owner, revenue - fee);
+    // 支付合约部署者
+    payto(owner(), fee);
+
+    events[eventId].paidOut = true;
+    balance -= revenue;
+  }
+
+  // 根据票铸造nft给用户，当主办方或合约部署着提现时，证明活动结束，可以铸造nft给用户，返回bool
+  function mintTickets(uint256 eventId) internal returns (bool) {
+    for (uint256 i = 0; i < tickets[eventId].length; i++) {
+      _totalTokes.increment();
+      _mint(tickets[eventId][i].owner, _totalTokes.current());
+      tickets[eventId][i].minted = true;
+    }
+
+    events[eventId].minted = true;
+    return true;
+  }
+
+  // 辅助函数，将金额支付给指定地址
+  function payto(address toAddr, uint256 amount) internal {
+    (bool success, ) = payable(toAddr).call{ value: amount }("");
+    require(success);
+  }
+
+  // 辅助函数，获取当前时间
   function currentTime() internal view returns (uint256) {
     return (block.timestamp * 1000); // block.timestamp 是秒，*1000 是毫秒
   }
 }
+
+// 票作为 NFT + SBT（Soulbound Token）：门票不可转让，保证真实持有。
+// 跨链门票：活动票可以在不同链上流通（跨链桥）。
+// DAO 管理：票持有者可以投票决定是否延长活动、变更嘉宾等。
