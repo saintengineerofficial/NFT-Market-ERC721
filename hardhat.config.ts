@@ -2,8 +2,8 @@ import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
 const accounts = [
-  process.env.NEXT_PUBLIC_ACCOUNTONE_KEY
-  process.env.NEXT_PUBLIC_ACCOUNTTWO_KEY
+  '37cee67e9e3fe48642c1ef815edef3da8ad98b1dccd486e03cc4728adeb2c242',
+  '4a34385dc9d597c13db9a14b4a6a2aff36215b7cbb6f65be50ef59f6dbf11341',
 ]
 
 const config: HardhatUserConfig = {
