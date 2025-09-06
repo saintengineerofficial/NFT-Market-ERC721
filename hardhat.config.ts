@@ -1,18 +1,24 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
+const accounts = [
+  process.env.NEXT_PUBLIC_ACCOUNTONE_KEY
+  process.env.NEXT_PUBLIC_ACCOUNTTWO_KEY
+]
+
 const config: HardhatUserConfig = {
   defaultNetwork: 'localhost',
   networks: {
     hardhat: {},
-    bitfinity: {
-      url: 'https://testnet.bitfinity.network',
-      accounts: [''],
-      chainId: 355113,
-    },
+    // bitfinity: {
+    //   url: 'https://testnet.bitfinity.network',
+    //   accounts: [''],
+    //   chainId: 355113,
+    // },
     BitTorrent: {
       url: "https://pre-rpc.bt.io/",
-      accounts: [''],
+      accounts,
+      gasPrice: 1000000000,
     },
   },
   solidity: {
