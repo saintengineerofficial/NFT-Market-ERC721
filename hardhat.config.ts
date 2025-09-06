@@ -10,11 +10,6 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'localhost',
   networks: {
     hardhat: {},
-    // bitfinity: {
-    //   url: 'https://testnet.bitfinity.network',
-    //   accounts: [''],
-    //   chainId: 355113,
-    // },
     BitTorrent: {
       url: "https://pre-rpc.bt.io/",
       accounts,

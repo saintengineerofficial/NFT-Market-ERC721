@@ -267,3 +267,4 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
 // 票作为 NFT + SBT（Soulbound Token）：门票不可转让，保证真实持有。
 // 跨链门票：活动票可以在不同链上流通（跨链桥）。
 // DAO 管理：票持有者可以投票决定是否延长活动、变更嘉宾等。
+// 账户抽象
