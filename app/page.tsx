@@ -1,13 +1,13 @@
-import React from 'react'
-import { Button } from '@/components/ui/button';
+import React from "react"
+import Hero from "@/components/sections/Hero"
+import Events from "@/components/sections/Events"
 
-type Props = {}
-
-const Page = (props: Props) => {
+const Page = () => {
   return (
-    <div>
-      <Button>111</Button>
-    </div>
+    <main className="max-w-7xl mx-auto flex flex-col gap-10">
+      <Hero></Hero>
+      <Events></Events>
+    </main>
   )
 }
 

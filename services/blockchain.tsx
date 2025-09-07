@@ -1,5 +1,5 @@
 import { ethers, TransactionResponse } from "ethers"
-import JSON from "@/ignition/deployments/chain-31337/artifacts/MK#MK.json"
+import JSON from "@/artifacts/contracts/MK.sol/MK.json"
 // import JSON from '@/ignition/deployments/chain-1029/artifacts/MK#MK.json'
 import { EthereumProvider } from "hardhat/types"
 import { EventParams, EventStruct, TicketStruct } from "@/lib/type.dt"
@@ -15,9 +15,8 @@ if (typeof window !== "undefined") ethereum = window.ethereum
 
 // 获取合约
 const getEthereumContract = async () => {
-  const accounts = (await ethereum.request({ method: "eth_accounts" })) as string[]
-
-  if (accounts.length > 0) {
+  const accounts = (await ethereum?.request({ method: "eth_accounts" })) as string[]
+  if (accounts?.length > 0) {
     const provider = new ethers.BrowserProvider(ethereum)
     const signer = await provider.getSigner()
     const contracts = new ethers.Contract(address, JSON.abi, signer)
@@ -133,7 +132,7 @@ const buyTicket = async (eventId: number, ticketNum: number) => {
   try {
     const contract = await getEthereumContract()
     const event = await getSingleEvent(eventId)
-    tx = await contract.buyTicket(eventId, ticketNum, { value: toWei(ticketNum * event.ticketCost) })
+    tx = await contract.buyTickets(eventId, ticketNum, { value: toWei(ticketNum * event.ticketCost) })
     tx.wait()
 
     return Promise.resolve(tx)
