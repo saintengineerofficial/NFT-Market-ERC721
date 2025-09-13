@@ -25,9 +25,11 @@ const Buy = ({ event }: Props) => {
   const [open, setOpen] = useState(false)
 
   const handleClick = async () => {
+    if (!num) return
     const loadingId = toast.loading("")
     try {
       const res = await buyTicket(event.id, +num)
+      window.location.reload()
       console.log("🚀 ~ handleClick ~ res:", res)
       toast.success("")
       setOpen(false)
@@ -39,7 +41,7 @@ const Buy = ({ event }: Props) => {
   }
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="w-30" onClick={() => setOpen(true)}>
           Buy
@@ -55,7 +57,9 @@ const Buy = ({ event }: Props) => {
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
           </DialogClose>
           <Button onClick={handleClick}>Confirm</Button>
         </DialogFooter>
