@@ -42,12 +42,24 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     bool minted; // 是否铸造
   }
 
+  // struct EventWithTickets {
+  //   uint256 eventId;
+  //   TicketStruct[] eventTickets;
+  // }
+
   uint256 public balance; // 合约内存放的金额
   uint256 private servicePct; // 服务费
 
   mapping(uint256 => EventStruct) events;
   mapping(uint256 => TicketStruct[]) tickets; // 活动=>数组(被购买的票)，数组中每个元素是一个票
   mapping(uint256 => bool) eventExists; // 活动是否存在
+
+  // v2
+  // mapping(address => uint256[]) userEvents; // 用户购买了哪些活动
+  // 地址=>活动=>piao
+  // mapping(address => mapping(uint256 => TicketStruct[])) userEventTickets;
+
+  mapping(address => TicketStruct[]) userTickets;
 
   // 初始化
   constructor(uint256 _pct) ERC721("Saint MK", "SMK") {
@@ -156,7 +168,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     }
   }
 
-  // 用户行为，获取我的活动
+  // 活动主办方，获取他创建的活动，不是购买了票的用户的活动
   function getMyEvents() public view returns (EventStruct[] memory Events) {
     uint256 available;
     for (uint256 i = 1; i <= _totalEvents.current(); i++) {
@@ -181,6 +193,29 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     return events[eventId];
   }
 
+  // 用户行为，获取购买了票的活动 ，与下面的函数冲突
+  // function getUserEvents() public view returns (EventStruct[] memory Events) {
+  //   uint256[] memory userEventIds = userEvents[msg.sender];
+  //   Events = new EventStruct[](userEventIds.length);
+  //   for (uint256 i = 0; i < userEventIds.length; i++) {
+  //     Events[i] = getSingleEvent(userEventIds[i]);
+  //   }
+  // }
+
+  function getUserTickets(address addr) public view returns (TicketStruct[] memory) {
+    // uint256[] memory userEventIds = userEvents[msg.sender];
+
+    // EventTickets = new EventWithTickets[](userEventIds.length);
+    // for (uint256 i = 0; i < userEventIds.length; i++) {
+    //   EventTickets[i].eventId = userEventIds[i];
+
+    //   TicketStruct[] memory myTickets = userEventTickets[msg.sender][userEventIds[i]];
+    //   EventTickets[i].eventTickets = myTickets;
+    // }
+
+    return userTickets[addr];
+  }
+
   // 用户行为，购买票
   function buyTickets(uint256 eventId, uint256 numOfticket) public payable {
     require(eventExists[eventId], "Event not found");
@@ -196,9 +231,13 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
       ticket.ticketCost = events[eventId].ticketCost;
       ticket.timestamp = currentTime();
       tickets[eventId].push(ticket);
+
+      // userEventTickets[msg.sender][eventId].push(ticket);
+      userTickets[msg.sender].push(ticket);
     }
 
     events[eventId].seats += numOfticket;
+    // userEvents[msg.sender].push(eventId);
     balance = balance + msg.value; // 增加合约余额
   }
 
@@ -260,12 +299,19 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
 
   // 辅助函数，获取当前时间
   function currentTime() internal view returns (uint256) {
-    return (block.timestamp * 1000); // block.timestamp 是秒，*1000 是毫秒
+    return (block.timestamp * 1000); // bsack.timestamp 是秒，*1000 是毫秒
   }
 }
 
 // 获取我的活动，缺少每个活动买了几张？？
-// 票作为 NFT + SBT（Soulbound Token）：门票不可转让，保证真实持有。
+// 票作为 NFT + SBT（Soulbound Token）：门票不可转让，保证真实持有。 // ？
 // 跨链门票：活动票可以在不同链上流通（跨链桥）。
 // DAO 管理：票持有者可以投票决定是否延长活动、变更嘉宾等。
 // 账户抽象
+// 任何人都可以创建活动，符合Web3去中心化理念，添加信誉机制、添加押金机制
+
+// 1.接入ipfs存储，记录活动和票的元数据
+// 2.LayerZero 跨链集成
+// 3.数字身份合约实现身份验证与权限控制
+// 4.Layer2 优化
+// 5.ERC-4337 账户抽象
