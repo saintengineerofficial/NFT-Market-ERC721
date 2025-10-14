@@ -18,20 +18,24 @@ import { createEvent } from "@/services/blockchain"
 import { EventParams } from "@/lib/type.dt"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { ChangeEvent, useState } from "react";
+import React from "react"
 
 const formSchema = z.object({
-  title: z.string().min(2, { message: "1111" }),
-  description: z.string().min(2),
-  capacity: z.int().min(0),
-  ticketCost: z.int().min(0),
-  imageUrl: z.httpUrl(),
-  startsAt: z.date(),
-  endsAt: z.date(),
+  title: z.string().min(2, { message: "Title must be at least 2 characters" }),
+  description: z.string().min(2, { message: "Description must be at least 2 characters" }),
+  capacity: z.number().min(1, { message: "Capacity must be at least 1" }),
+  ticketCost: z.number().min(0, { message: "Ticket cost must be 0 or greater" }),
+  imageUrl: z.string().url({ message: "Please upload an image" }),
+  startsAt: z.date({ message: "Please select a start date" }),
+  endsAt: z.date({ message: "Please select an end date" }),
+}).refine((data) => data.endsAt > data.startsAt, {
+  message: "End date must be after start date",
+  path: ["endsAt"],
 })
 
 const Page = () => {
   const router = useRouter()
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,12 +43,39 @@ const Page = () => {
       description: "content.js:1 Uncaught (in promise) The message port closed before a response was received.",
       capacity: 100,
       ticketCost: 1,
-      imageUrl:
-        "https://images.unsplash.com/photo-1755371034010-51c25321312d?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxmZWF0dXJlZC1waG90b3MtZmVlZHwxfHx8ZW58MHx8fHx8",
+      imageUrl: "",
       startsAt: new Date(),
-      endsAt: new Date(),
+      endsAt: new Date(new Date().getTime() + 1000 * 60 * 60 * 24),
     },
   })
+
+  const [uploading, setUploading] = useState(false);
+
+  const uploadFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    try {
+      if (!e.target?.files?.[0]) {
+        alert("No file selected");
+        return;
+      }
+
+      setUploading(true);
+      const data = new FormData();
+      data.set("file", e.target?.files?.[0]);
+      const uploadRequest = await fetch("/api/files", {
+        method: "POST",
+        body: data,
+      });
+      const signedUrl = await uploadRequest.json();
+      console.log("🚀 ~ uploadFile ~ signedUrl:", signedUrl)
+
+      form.setValue("imageUrl", signedUrl); // 更新表单字段
+      setUploading(false);
+    } catch (e) {
+      console.log(e);
+      setUploading(false);
+      alert("Trouble uploading file");
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     console.log(values)
@@ -130,7 +161,9 @@ const Page = () => {
                 <FormItem>
                   <FormLabel>Image</FormLabel>
                   <FormControl>
-                    <Input type="url" {...field} value={field.value} />
+                    <div className="space-y-2">
+                      <Input type='file' disabled={uploading} onChange={uploadFile} />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -178,7 +211,7 @@ const Page = () => {
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={date => date > new Date() || date < new Date("1900-01-01")}
+                        disabled={date => date < new Date("1900-01-01")}
                         captionLayout="dropdown"
                       />
                     </PopoverContent>
@@ -216,7 +249,7 @@ const Page = () => {
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={date => date > new Date() || date < new Date("1900-01-01")}
+                        disabled={date => date < new Date("1900-01-01")}
                         captionLayout="dropdown"
                       />
                     </PopoverContent>

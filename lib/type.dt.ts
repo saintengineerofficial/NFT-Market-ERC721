@@ -21,6 +21,7 @@ export interface EventStruct {
   title: string
   imageUrl: string
   description: string
+  metadataURI?: string // IPFS元数据URI
   owner: string
   sales: number
   ticketCost: number

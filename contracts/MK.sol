@@ -11,14 +11,11 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
   Counters.Counter private _totalEvents;
   Counters.Counter private _totalTokes;
 
-  // 活动结构体
+  // 活动结构体 - 优化后只保留业务逻辑必需的字段
   struct EventStruct {
     uint256 id;
-    string title;
-    string imageUrl;
-    string description;
+    string metadataURI; // IPFS元数据URI - 包含title, description, imageUrl等
     address owner;
-    uint256 sales; // 销售量
     uint256 ticketCost;
     uint256 capacity; // 容量
     uint256 seats; // 座位数
@@ -26,7 +23,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     uint256 endsAt; // 结束时间
     uint256 timestamp; // 创建时间
     bool deleted; // 是否删除
-    bool paidOut; // 是否将合约中的金额支付给合约所有者（类似从合约提现走），功能上没有具体使用，记录
+    bool paidOut; // 是否将合约中的金额支付给合约所有者
     bool refunded; // 是否退款，活动取消退款所有用户金额
     bool minted; // 是否铸造
   }
@@ -68,17 +65,13 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
 
   // 活动主办方，创建活动
   function createEvent(
-    string memory title,
-    string memory description,
-    string memory imageUrl,
+    string memory metadataURI,
     uint256 capacity,
     uint256 ticketCost,
     uint256 startsAt,
     uint256 endsAt
   ) public {
-    require(bytes(title).length > 0, "Title cannot be empty");
-    require(bytes(description).length > 0, "Description cannot be empty");
-    require(bytes(imageUrl).length > 0, "ImageUrl cannot be empty");
+    require(bytes(metadataURI).length > 0, "MetadataURI cannot be empty");
     require(capacity > 0, "Capacity must be greater than zero");
     require(ticketCost > 0 ether, "TicketCost must be greater than zero");
     require(startsAt > 0, "StartsAt must be greater than zero");
@@ -87,9 +80,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     _totalEvents.increment();
     EventStruct memory eventMK;
     eventMK.id = _totalEvents.current();
-    eventMK.title = title;
-    eventMK.description = description;
-    eventMK.imageUrl = imageUrl;
+    eventMK.metadataURI = metadataURI;
     eventMK.capacity = capacity;
     eventMK.ticketCost = ticketCost;
     eventMK.startsAt = startsAt;
@@ -104,9 +95,7 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
   // 活动主办方，更新活动
   function updateEvent(
     uint256 eventId,
-    string memory title,
-    string memory description,
-    string memory imageUrl,
+    string memory metadataURI,
     uint256 capacity,
     uint256 ticketCost,
     uint256 startsAt,
@@ -116,17 +105,13 @@ contract MK is Ownable, ReentrancyGuard, ERC721 {
     require(eventExists[eventId], "Event does not exist");
     // require(currentTime() > events[eventId].startsAt, 'Event has started, cannot be updated');
 
-    require(bytes(title).length > 0, "Title cannot be empty");
-    require(bytes(description).length > 0, "Description cannot be empty");
-    require(bytes(imageUrl).length > 0, "ImageUrl cannot be empty");
+    require(bytes(metadataURI).length > 0, "MetadataURI cannot be empty");
     require(capacity > 0, "Capacity must be greater than zero");
     require(ticketCost > 0 ether, "TicketCost must be greater than zero");
     require(startsAt > 0, "StartsAt must be greater than zero");
     require(endsAt > startsAt, "EndsAt must be greater than StartsAt");
 
-    events[eventId].title = title;
-    events[eventId].description = description;
-    events[eventId].imageUrl = imageUrl;
+    events[eventId].metadataURI = metadataURI;
     events[eventId].capacity = capacity;
     events[eventId].ticketCost = ticketCost;
     events[eventId].startsAt = startsAt;
