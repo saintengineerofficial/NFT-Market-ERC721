@@ -8,19 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "deploy:crosschain": "hardhat run scripts/deploy-crosschain.js",
-    "configure:crosschain": "hardhat run scripts/configure-crosschain.js",
-    "test:crosschain": "hardhat run scripts/test-crosschain.js",
-    "deploy:goerli": "hardhat run scripts/deploy-crosschain.js --network goerli",
-    "deploy:mumbai": "hardhat run scripts/deploy-crosschain.js --network mumbai",
-    "deploy:bsc-testnet": "hardhat run scripts/deploy-crosschain.js --network bscTestnet",
-    "configure:goerli": "hardhat run scripts/configure-crosschain.js --network goerli",
-    "configure:mumbai": "hardhat run scripts/configure-crosschain.js --network mumbai",
-    "test:goerli": "hardhat run scripts/test-crosschain.js --network goerli",
-    "test:mumbai": "hardhat run scripts/test-crosschain.js --network mumbai"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -54,8 +42,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@layerzerolabs/solidity-examples": "^1.0.0",
-    "@layerzerolabs/lz-evm-protocol-v2": "^2.0.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",
     "@nomicfoundation/hardhat-ignition": "^0.15.13",
