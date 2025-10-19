@@ -1,6 +1,7 @@
 import { ethers, TransactionResponse } from "ethers"
-import JSON from "@/artifacts/contracts/MK.sol/MK.json"
-// import JSON from '@/ignition/deployments/chain-1029/artifacts/MK#MK.json'
+import EventManagerJSON from "@/ignition/deployments/chain-31337/artifacts/EventSystem#EventManager.json"
+import TicketNFTJSON from "@/ignition/deployments/chain-31337/artifacts/EventSystem#TicketNFT.json"
+import contractAddresses from "@/contracts/contractAddress.json"
 import { EthereumProvider } from "hardhat/types"
 import { EventParams, EventStruct, TicketStruct } from "@/lib/type.dt"
 import { uploadEventMetadata, createEventMetadata, getMetadataFromIPFS } from "./metadata"
@@ -8,30 +9,53 @@ import { uploadEventMetadata, createEventMetadata, getMetadataFromIPFS } from ".
 const toWei = (num: number) => ethers.parseEther(num.toString())
 const fromWei = (num: number) => ethers.formatEther(num)
 
-const address = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+// 获取网络对应的合约地址
+const getContractAddresses = () => {
+  const network = process.env.NODE_ENV === "production" ? "localhost" : "localhost"
+  return contractAddresses[network]
+}
 let ethereum: EthereumProvider
 let tx: TransactionResponse
 
 if (typeof window !== "undefined") ethereum = window.ethereum
 
-// 获取合约
-const getEthereumContract = async () => {
+// 获取EventManager合约
+const getEventManagerContract = async () => {
+  const addresses = getContractAddresses()
   const accounts = (await ethereum?.request({ method: "eth_accounts" })) as string[]
   if (accounts?.length > 0) {
     const provider = new ethers.BrowserProvider(ethereum)
     const signer = await provider.getSigner()
-    const contracts = new ethers.Contract(address, JSON.abi, signer)
-    await contracts.waitForDeployment()
-    return contracts
+    const contract = new ethers.Contract(addresses.EventManager, EventManagerJSON.abi, signer)
+    await contract.waitForDeployment()
+    return contract
   } else {
     // 本地
     const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL)
-    // const wallet = ethers.Wallet.createRandom()
-    // const signer = wallet.connect(provider) // 创建随机钱包，没有eth
     const signer = await provider.getSigner(19) // 使用19号钱包
-    const contracts = new ethers.Contract(address, JSON.abi, signer)
-    await contracts.waitForDeployment()
-    return contracts
+    const contract = new ethers.Contract(addresses.EventManager, EventManagerJSON.abi, signer)
+    await contract.waitForDeployment()
+    return contract
+  }
+}
+
+// 获取TicketNFT合约
+const getTicketNFTContract = async () => {
+  const addresses = getContractAddresses()
+  const accounts = (await ethereum?.request({ method: "eth_accounts" })) as string[]
+  if (accounts?.length > 0) {
+    const provider = new ethers.BrowserProvider(ethereum)
+    const signer = await provider.getSigner()
+    const contract = new ethers.Contract(addresses.TicketNFT, TicketNFTJSON.abi, signer)
+    await contract.waitForDeployment()
+    return contract
+  } else {
+    // 本地
+    const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL)
+    const signer = await provider.getSigner(19) // 使用19号钱包
+    const contract = new ethers.Contract(addresses.TicketNFT, TicketNFTJSON.abi, signer)
+    await contract.waitForDeployment()
+    return contract
   }
 }
 
@@ -50,14 +74,14 @@ const createEvent = async (event: EventParams) => {
       category: "Event", // 可以根据需要动态设置
       location: "TBD",
       language: "English",
-      difficulty: "All Levels"
+      difficulty: "All Levels",
     })
 
     const metadataURI = await uploadEventMetadata(metadata)
     console.log("Event metadata uploaded to IPFS:", metadataURI)
 
     // 2. 调用智能合约，只传入业务逻辑必需的参数
-    const contract = await getEthereumContract()
+    const contract = await getEventManagerContract()
     tx = await contract.createEvent(
       metadataURI, // IPFS元数据URI
       event.capacity,
@@ -88,14 +112,14 @@ const updateEvent = async (event: EventParams) => {
       category: "Event",
       location: "TBD",
       language: "English",
-      difficulty: "All Levels"
+      difficulty: "All Levels",
     })
 
     const metadataURI = await uploadEventMetadata(metadata)
     console.log("Updated event metadata uploaded to IPFS:", metadataURI)
 
     // 2. 调用智能合约更新
-    const contract = await getEthereumContract()
+    const contract = await getEventManagerContract()
     tx = await contract.updateEvent(
       event.id,
       metadataURI,
@@ -119,7 +143,7 @@ const deleteEvent = async (eventId: number) => {
   }
 
   try {
-    const contract = await getEthereumContract()
+    const contract = await getEventManagerContract()
     tx = await contract.deleteEvent(eventId)
     await tx.wait()
 
@@ -132,21 +156,21 @@ const deleteEvent = async (eventId: number) => {
 
 // 获取所有活动
 const getEvents = async (): Promise<EventStruct[]> => {
-  const contract = await getEthereumContract()
+  const contract = await getEventManagerContract()
   const events = await contract.getEvents()
   console.log("🚀 ~ getEvents ~ events:", events)
   return structEvent(events)
 }
 
 const getMyEvent = async (): Promise<EventStruct[]> => {
-  const contract = await getEthereumContract()
+  const contract = await getEventManagerContract()
   const events = await contract.getMyEvents()
   console.log("🚀 ~ getEvents ~ events:", events)
   return structEvent(events)
 }
 
 const getSingleEvent = async (eventId: number): Promise<EventStruct> => {
-  const contract = await getEthereumContract()
+  const contract = await getEventManagerContract()
   const event = await contract.getSingleEvent(eventId)
   return structEvent([event])[0]
 }
@@ -160,7 +184,7 @@ const getEventWithMetadata = async (eventId: number) => {
     const event = await getSingleEvent(eventId)
 
     // 2. 从IPFS获取元数据并填充展示字段
-    if (event.metadataURI && event.metadataURI.startsWith('ipfs://')) {
+    if (event.metadataURI && event.metadataURI.startsWith("ipfs://")) {
       const metadata = await getMetadataFromIPFS(event.metadataURI)
       return {
         ...event,
@@ -198,7 +222,7 @@ const buyTicket = async (eventId: number, ticketNum: number) => {
   }
 
   try {
-    const contract = await getEthereumContract()
+    const contract = await getEventManagerContract()
     const event = await getSingleEvent(eventId)
     tx = await contract.buyTickets(eventId, ticketNum, { value: toWei(ticketNum * event.ticketCost) })
     tx.wait()
@@ -211,7 +235,7 @@ const buyTicket = async (eventId: number, ticketNum: number) => {
 }
 
 const getTickets = async (eventId: number) => {
-  const contract = await getEthereumContract()
+  const contract = await getEventManagerContract()
   const tickets = await contract.getTickets(eventId)
   return structTickets(tickets)
 }
@@ -222,7 +246,7 @@ const payout = async (eventId: number) => {
     return Promise.reject(new Error("Browser provider not installed"))
   }
   try {
-    const contract = await getEthereumContract()
+    const contract = await getEventManagerContract()
     tx = await contract.payOut(eventId)
     tx.wait()
     return Promise.resolve(tx)
@@ -270,4 +294,15 @@ const structTickets = (tickets: TicketStruct[]): TicketStruct[] =>
     }))
     .sort((a, b) => b.timestamp - a.timestamp)
 
-export { getEvents, getMyEvent, getSingleEvent, getEventWithMetadata, getTickets, createEvent, updateEvent, deleteEvent, buyTicket, payout }
+export {
+  getEvents,
+  getMyEvent,
+  getSingleEvent,
+  getEventWithMetadata,
+  getTickets,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  buyTicket,
+  payout,
+}
