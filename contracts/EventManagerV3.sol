@@ -37,13 +37,19 @@ contract EventManagerV3 is Ownable, ReentrancyGuard {
   }
 
   mapping(uint256 => EventStruct) public events;
+
+  // 活动=>数组(被购买的票)，数组中每个元素是一个票
   mapping(uint256 => TicketStruct[]) public tickets;
   mapping(uint256 => bool) public eventExists;
+  // 用户=>数组(被购买所有活动的票)，数组中每个元素是一个票
   mapping(address => TicketStruct[]) public userTickets;
+  // 每个活动一个元数据URI
+  mapping(uint256 => string) public eventMetadataURI;
 
   uint256 public balance;
   uint256 private servicePct;
 
+  // 纪念品合约
   TicketERC1155 public ticketERC1155;
 
   event EventCreated(uint256 indexed id, address indexed owner, string metadataURI);
@@ -53,9 +59,11 @@ contract EventManagerV3 is Ownable, ReentrancyGuard {
   event EventPaidOut(uint256 indexed eventId, address indexed owner, uint256 revenue, uint256 fee);
   event EventRefunded(uint256 indexed eventId);
 
+
   constructor(uint256 _pct, address _ticketERC1155) {
     require(_ticketERC1155 != address(0), "Invalid TicketERC1155");
     servicePct = _pct;
+    // 设置纪念品合约地址
     ticketERC1155 = TicketERC1155(_ticketERC1155);
   }
 
@@ -87,6 +95,7 @@ contract EventManagerV3 is Ownable, ReentrancyGuard {
 
     events[eventId] = ev;
     eventExists[eventId] = true;
+    eventMetadataURI[eventId] = metadataURI;
 
     emit EventCreated(eventId, msg.sender, metadataURI);
   }
@@ -180,20 +189,34 @@ contract EventManagerV3 is Ownable, ReentrancyGuard {
     require(msg.sender == ev.owner || msg.sender == owner(), "Unauthorized");
 
     // mint ERC1155 tokens
-    for (uint256 i = 0; i < tickets[eventId].length; i++) {
-      TicketStruct storage t = tickets[eventId][i];
-      if (!t.minted && !t.refunded) {
-        ticketERC1155.mintTicket(t.owner, eventId, ev.metadataURI, 1);
+    ticketERC1155.mintEventCommemorative(
+      address(this),
+      eventId,
+      ev.metadataURI,
+      ev.seats // 出售多少张票就铸造多少个纪念品
+    );
+
+    // 将纪念品转移给每一个购票者
+    for(uint256 i = 0;i<tickets[eventId].length;i++) {
+      TicketStruct storage t = tickets[eventId][i]; // 每一个被购买的票
+      if(!t.minted && !t.refunded) {
+        ticketERC1155.safeTransferFrom(
+          address(this),
+          t.owner,
+          eventId,
+          1,
+          ""
+        );
         t.minted = true;
       }
     }
 
     // payout
-    uint256 revenue = ev.seats * ev.ticketCost;
+    uint256 revenue = ev.seats * ev.ticketCost; // 总收入
     uint256 fee = (revenue * servicePct) / 100;
-    _pay(ev.owner, revenue - fee);
-    _pay(owner(), fee);
-    balance -= revenue;
+    _pay(ev.owner, revenue - fee); // 支付活动主办方
+    _pay(owner(), fee); // 支付合约部署者
+    balance -= revenue; // 更新合约余额
 
     ev.paidOut = true;
     ev.minted = true;
