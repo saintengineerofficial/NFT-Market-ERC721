@@ -270,8 +270,8 @@ contract EventManager is Ownable, ReentrancyGuard {
     require(eventExists[eventId], "Event not exists");
     EventStruct storage ev = events[eventId];
     
-    // 必须在活动结束前3天退款
-    require(block.timestamp < ev.endsAt - 3 days, "Refund deadline passed");
+    // 必须在活动开始前3天退款
+    require(block.timestamp < ev.startsAt - 3 days, "Refund deadline passed");
     
     uint256 tokenId = eventId * 1000 + uint256(ticketType);
     uint256 userBalance = ticketERC1155.balanceOf(msg.sender, tokenId);
@@ -481,9 +481,16 @@ contract EventManager is Ownable, ReentrancyGuard {
     address[] memory attendees,
     TicketType[] memory ticketTypes
   ) external {
+    // 统一在循环外验证，避免重复检查
+    require(eventExists[eventId], "Event not exists");
     require(eventCheckers[eventId][msg.sender], "Not authorized");
     require(attendees.length == ticketTypes.length, "Length mismatch");
+    
+    EventStruct storage ev = events[eventId];
+    require(!ev.deleted, "Event deleted");
+    require(block.timestamp >= ev.startsAt, "Event not started");
 
+    // 循环内只处理每个人的检票逻辑
     for (uint256 i = 0; i < attendees.length; i++) {
       uint256 tokenId = eventId * 1000 + uint256(ticketTypes[i]);
       uint256 nftBalance = ticketERC1155.balanceOf(attendees[i], tokenId);
@@ -493,6 +500,7 @@ contract EventManager is Ownable, ReentrancyGuard {
       require(!usedTickets[checkInKey], "Already checked in");
       usedTickets[checkInKey] = true;
       
+      // 记录检票（如果同一人有多个票种，后面的会覆盖前面的记录）
       checkInRecords[eventId][attendees[i]] = CheckInRecord({
         attendee: attendees[i],
         ticketType: ticketTypes[i],
